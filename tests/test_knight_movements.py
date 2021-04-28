@@ -1,0 +1,52 @@
+import pytest
+from brownie import Chess, accounts, web3, reverts
+
+@pytest.fixture
+def chess_contract():
+    return accounts[0].deploy(Chess)
+
+@pytest.mark.parametrize("game_state,movement,blackMove,expected_new_state", 
+    [
+        # White move 1 right 2 up
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6ec", False,
+         "0x0000000000000000000300000000000000000000000000000000000000000000"),
+        # White move 2 right 1 up
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6e5", False,
+         "0x0000000000000000000000000030000000000000000000000000000000000000"),
+        # White move 2 right 1 down
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6d5", False,
+         "0x0000000000000000000000000000000000000000003000000000000000000000"),
+        # White move 1 right 2 down
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6cc", False,
+         "0x0000000000000000000000000000000000000000000000000003000000000000"),
+        
+        # White move 1 left 2 down
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6ca", False,
+         "0x0000000000000000000000000000000000000000000000000000030000000000"),
+        # White move 2 left 1 down
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6d1", False,
+         "0x0000000000000000000000000000000000000000000000300000000000000000"),
+        # White move 2 left 1 up
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6e1", False,
+         "0x0000000000000000000000000000003000000000000000000000000000000000"),
+        # White move 1 left 2 up
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6ea", False,
+         "0x0000000000000000000003000000000000000000000000000000000000000000"),
+        
+    ])
+def test_valid_movements(chess_contract, game_state, movement, blackMove, expected_new_state):
+    assert chess_contract.verifyExecuteMove(game_state, movement, "0x00", "0x00", blackMove)[0] == expected_new_state
+
+
+@pytest.mark.parametrize("game_state,movement,blackMove,err", 
+    [
+        # No move
+        ("0x0000000000000000000000000000000000003000000000000000000000000000", "0x6db", False, "inv move stale"),
+        # White same color occupied square
+        ("0x0000000000000000000000000000000000003000001000000000000000000000", "0x6d5", False, "inv move"),
+        # Black same color occupied square
+        ("0x000000000000000000000000000000000000b000009000000000000000000000", "0x6d5", True, "inv move"),
+    ])
+def test_invalid_movements(chess_contract, game_state, movement, blackMove, err):
+    with reverts(err):
+        chess_contract.verifyExecuteMove(game_state, movement, "0x00", "0x00", blackMove)
